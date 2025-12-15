@@ -2,6 +2,7 @@ pipeline {
     agent any
 
     environment {
+        JENKINS_USER_ID = 'jayshukla29_13' // Credential ID for Jenkins admin user/token
         JENKINS_USER = credentials('jayshukla29_13') // Jenkins admin username
         JENKINS_TOKEN = credentials('jayshukla29_13') // Jenkins API token
         JENKINS_URL = 'http://107.23.4.27:8080' // Jenkins server URL
@@ -22,7 +23,7 @@ pipeline {
                     
                     // 2. Use withCredentials to safely retrieve the Admin Token
                     withCredentials([usernamePassword(
-                        credentialsId: '${JENKINS_USER}', // ID of the Admin User/Token
+                        credentialsId: '${JENKINS_USER_ID}', // ID of the Admin User/Token
                         usernameVariable: 'JENKINS_USER',
                         passwordVariable: 'JENKINS_TOKEN'
                     )]) {
