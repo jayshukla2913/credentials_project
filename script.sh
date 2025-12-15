@@ -39,24 +39,24 @@ while IFS=, read -r USER PASSWORD; do
         continue
     fi
 
-    echo "Processing user: ${USER} using Jenkins CLI"
+echo "Processing user: ${USER} using Jenkins CLI (UsernamePassword Method)"
 
-# 2. Construct the Groovy Script for 'Secret Text' using the Credentials API
-
-    GROOVY_SCRIPT=$(cat <<EOF
+# 2. Construct the Groovy Script for 'Username and password'
+GROOVY_SCRIPT=$(cat <<EOF
 import com.cloudbees.plugins.credentials.domains.Domain;
-import com.cloudbees.plugins.credentials.impl.SecretStringCredentialsImpl;
+import com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl; // <-- CHANGED CLASS
 import com.cloudbees.plugins.credentials.CredentialsScope;
 
 // Get the Credentials Provider (the management service)
 def store = jenkins.model.Jenkins.instance.getExtensionList('com.cloudbees.plugins.credentials.CredentialsProvider').get(0).getStore(jenkins.model.Jenkins.instance);
 
-// Create the new SecretStringCredentialsImpl instance
-def credential = new SecretStringCredentialsImpl(
+// Create the new UsernamePasswordCredentialsImpl instance
+def credential = new UsernamePasswordCredentialsImpl(
     CredentialsScope.GLOBAL,
-    "${USER}", // ID
-    "${USER}", // Description (Using User as description)
-    "${PASSWORD}" // Secret
+    "${USER}",          // ID (Required by the constructor)
+    "${USER}",          // Description (Using User as description)
+    "${USER}",          // Username
+    "${PASSWORD}"       // Password (The secret value)
 );
 
 // Add the credential to the global store
@@ -66,7 +66,6 @@ EOF
 )
     
 # 3. Execute the CLI command with the Groovy script
-# The CLI will execute this script against the Jenkins master
 java -jar jenkins-cli.jar -s "${JENKINS_URL}" \
      -auth "${JENKINS_USER}:${JENKINS_TOKEN}" \
      groovy = <<< "$GROOVY_SCRIPT"
@@ -82,15 +81,6 @@ fi
 
     # Generate the XML structure for a Secret Text credential
     # NOTE: The DESCRIPTION is stored in the <id>, <description>, AND <secret> fields.
-    CREDENTIAL_XML=$(cat <<EOF
-<com.cloudbees.plugins.credentials.impl.SecretStringCredentialsImpl>
-    <scope>GLOBAL</scope>
-    <id>${USER}</id>
-    <description>${USER}</description>
-    <secret>${PASSWORD}</secret>
-</com.cloudbees.plugins.credentials.impl.SecretStringCredentialsImpl>
-EOF
-)
     
     # Send the XML to the Jenkins API to create/update the credential
     # -s: Silent mode
