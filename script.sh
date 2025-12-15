@@ -50,6 +50,8 @@ EOF
     # We use a subshell and 'echo' the XML to ensure it's handled correctly by 'curl'
     RESPONSE=$(echo "${CREDENTIAL_XML}" | curl -X POST -s -w "%{http_code}" -o /dev/null -u "${JENKINS_USER}:${JENKINS_TOKEN}" "${JENKINS_URL}/credentials/store/system/domain/_/createCredentialsByXml" --data-binary @-)
 
+    echo "DEBUG: Attempting API call to: ${JENKINS_URL}/credentials/store/system/domain/_/createCredentialsByXml"
+
     if [ "$RESPONSE" -eq 200 ] || [ "$RESPONSE" -eq 204 ]; then
         echo "Successfully created/updated credential ID: ${USER}"
     else
