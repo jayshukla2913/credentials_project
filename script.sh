@@ -39,22 +39,22 @@ while IFS=, read -r USER PASSWORD; do
         continue
     fi
 
-echo "Processing user: ${USER} using Jenkins CLI (UsernamePassword Method)"
+echo "Processing user: ${USER} using Jenkins CLI (Final Groovy Pattern)"
 
 # 2. Construct the Groovy Script for 'Username and password'
 GROOVY_SCRIPT=$(cat <<EOF
 import com.cloudbees.plugins.credentials.domains.Domain;
-import com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl; // <-- CHANGED CLASS
+import com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl;
 import com.cloudbees.plugins.credentials.CredentialsScope;
 
-// Get the Credentials Provider (the management service)
-def store = jenkins.model.Jenkins.instance.getExtensionList('com.cloudbees.plugins.credentials.CredentialsProvider').get(0).getStore(jenkins.model.Jenkins.instance);
+// Get the Credentials Provider and the Global Store
+def store = com.cloudbees.plugins.credentials.CredentialsProvider.lookupStores(jenkins.model.Jenkins.instance).find { it.getStore(jenkins.model.Jenkins.instance) != null }.getStore(jenkins.model.Jenkins.instance);
 
 // Create the new UsernamePasswordCredentialsImpl instance
 def credential = new UsernamePasswordCredentialsImpl(
     CredentialsScope.GLOBAL,
-    "${USER}",          // ID (Required by the constructor)
-    "${USER}",          // Description (Using User as description)
+    "${USER}",          // ID
+    "${USER}",          // Description
     "${USER}",          // Username
     "${PASSWORD}"       // Password (The secret value)
 );
@@ -64,7 +64,7 @@ store.addCredentials(Domain.global(), credential);
 println "SUCCESS: Credential ${USER} added."
 EOF
 )
-    
+
 # 3. Execute the CLI command with the Groovy script
 java -jar jenkins-cli.jar -s "${JENKINS_URL}" \
      -auth "${JENKINS_USER}:${JENKINS_TOKEN}" \
