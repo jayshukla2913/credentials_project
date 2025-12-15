@@ -61,3 +61,5 @@ EOF
 done < "$USER_FILE"
 
 echo "--- Credential Synchronization Complete ---"
+
+# Exit successfully
