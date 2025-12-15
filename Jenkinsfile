@@ -23,7 +23,7 @@ pipeline {
                     
                     // 2. Use withCredentials to safely retrieve the Admin Token
                     withCredentials([usernamePassword(
-                        credentialsId: 'jayshukla29_13', // ID of the Admin User/Token
+                        credentialsId: "${JENKINS_USER_ID}", // ID of the Admin User/Token
                         usernameVariable: 'JENKINS_USER',
                         passwordVariable: 'JENKINS_TOKEN'
                     )]) {
@@ -31,8 +31,8 @@ pipeline {
                         // 3. Execute the shell script, passing the environment variables
                         // The script needs to be executable.
                         sh """
-                        chmod +x create_credentials.sh
-                        ./create_credentials.sh
+                        chmod +x script.sh
+                        ./script.sh
                         """
                         // Pass the Jenkins URL as an environment variable to the script
                         // sh(script: "./create_credentials.sh", env: ["JENKINS_URL": "${jenkinsUrl}"])
