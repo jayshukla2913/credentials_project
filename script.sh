@@ -3,9 +3,9 @@
 
 # --- Configuration ---
 USER_FILE="credentials.txt"
-JENKINS_URL="${JENKINS_URL}"
-JENKINS_USER="${JENKINS_USER}"
-JENKINS_TOKEN="${JENKINS_TOKEN}"
+# JENKINS_URL="${JENKINS_URL}"
+# JENKINS_USER="${JENKINS_USER}"
+# JENKINS_TOKEN="${JENKINS_TOKEN}"
 # ---------------------
 
 # Check if the user file exists
