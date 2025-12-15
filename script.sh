@@ -8,6 +8,17 @@ JENKINS_USER="${JENKINS_USER}"
 JENKINS_TOKEN="${JENKINS_TOKEN}"
 # ---------------------
 
+# 1. Download the Jenkins CLI client (if it doesn't exist)
+if [ ! -f "jenkins-cli.jar" ]; then
+    echo "Downloading Jenkins CLI..."
+    # Note: Use your full, correct JENKINS_URL here, including context root if needed
+    curl -s -o jenkins-cli.jar "${JENKINS_URL}/jnlpJars/jenkins-cli.jar"
+    if [ $? -ne 0 ]; then
+        echo "Error downloading jenkins-cli.jar. Check JENKINS_URL and connectivity."
+        exit 1
+    fi
+fi
+
 # Check if the user file exists
 if [ ! -f "$USER_FILE" ]; then
     echo "Error: User data file '$USER_FILE' not found."
@@ -28,7 +39,32 @@ while IFS=, read -r USER PASSWORD; do
         continue
     fi
 
-    echo "Processing user: ${USER}"
+    echo "Processing user: ${USER} using Jenkins CLI"
+
+    # 2. Construct the Groovy Script for 'Secret Text' (The CLI takes a Groovy script)
+    GROOVY_SCRIPT=$(cat <<EOF
+new com.cloudbees.plugins.credentials.impl.SecretStringCredentialsImpl(
+    com.cloudbees.plugins.credentials.CredentialsScope.GLOBAL,
+    "${USER}",
+    "${USER}",
+    "${PASSWORD}"
+).store()
+EOF
+)
+
+
+# 3. Execute the CLI command with the Groovy script
+    java -jar jenkins-cli.jar -s "${JENKINS_URL}" \
+         -auth "${JENKINS_USER}:${JENKINS_TOKEN}" \
+         groovy = <<< "$GROOVY_SCRIPT"
+
+    # Check the exit code of the Java command
+    if [ $? -eq 0 ]; then
+        echo "Successfully created/updated credential ID: ${USER}"
+    else
+        echo "Error: Failed to create credential ${USER} via Jenkins CLI. Check logs."
+        exit 1
+    fi
 
     # Generate the XML structure for a Secret Text credential
     # NOTE: The DESCRIPTION is stored in the <id>, <description>, AND <secret> fields.
