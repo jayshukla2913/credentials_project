@@ -11,18 +11,12 @@ JENKINS_TOKEN="${JENKINS_TOKEN}"
 # 1. Download the Jenkins CLI client (if it doesn't exist)
 if [ ! -f "jenkins-cli.jar" ]; then
     echo "Downloading Jenkins CLI..."
-    # Note: Use your full, correct JENKINS_URL here, including context root if needed
-    curl -s -o jenkins-cli.jar "${JENKINS_URL}/jnlpJars/jenkins-cli.jar"
+    # Using -k (insecure) might be needed if your Jenkins uses a self-signed certificate.
+    curl -s -k -o jenkins-cli.jar "${JENKINS_URL}/jnlpJars/jenkins-cli.jar" 
     if [ $? -ne 0 ]; then
         echo "Error downloading jenkins-cli.jar. Check JENKINS_URL and connectivity."
         exit 1
     fi
-fi
-
-# Check if the user file exists
-if [ ! -f "$USER_FILE" ]; then
-    echo "Error: User data file '$USER_FILE' not found."
-    exit 1
 fi
 
 echo "--- Starting Credential Synchronization ---"
@@ -39,66 +33,39 @@ while IFS=, read -r USER PASSWORD; do
         continue
     fi
 
-echo "Processing user: ${USER} using Jenkins CLI (Final Groovy Pattern)"
+    echo "Processing user: ${USER} using CLI 'create-credential'"
 
-# 2. Construct the Groovy Script for 'Username and password'
-GROOVY_SCRIPT=$(cat <<EOF
-import com.cloudbees.plugins.credentials.domains.Domain;
-import com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl;
-import com.cloudbees.plugins.credentials.CredentialsScope;
+    # 2. Define a temporary XML file for the credential
+    TEMP_XML_FILE="${USER}_credential.xml"
 
-// Get the Credentials Provider and the Global Store
-def store = com.cloudbees.plugins.credentials.CredentialsProvider.lookupStores(jenkins.model.Jenkins.instance).find { it.getStore(jenkins.model.Jenkins.instance) != null }.getStore(jenkins.model.Jenkins.instance);
-
-// Create the new UsernamePasswordCredentialsImpl instance
-def credential = new UsernamePasswordCredentialsImpl(
-    CredentialsScope.GLOBAL,
-    "${USER}",          // ID
-    "${USER}",          // Description
-    "${USER}",          // Username
-    "${PASSWORD}"       // Password (The secret value)
-);
-
-// Add the credential to the global store
-store.addCredentials(Domain.global(), credential);
-println "SUCCESS: Credential ${USER} added."
+    # 3. Generate the XML structure for a Username with Password credential
+    cat > "$TEMP_XML_FILE" <<EOF
+<com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl>
+    <scope>GLOBAL</scope>
+    <id>${USER}</id>
+    <description>${USER}</description>
+    <username>${USER}</username>
+    <password>${PASSWORD}</password>
+</com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl>
 EOF
-)
-
-# 3. Execute the CLI command with the Groovy script
-java -jar jenkins-cli.jar -s "${JENKINS_URL}" \
-     -auth "${JENKINS_USER}:${JENKINS_TOKEN}" \
-     groovy = <<< "$GROOVY_SCRIPT"
-
-# Check the exit code of the Java command
-if [ $? -eq 0 ]; then
-    echo "Successfully created/updated credential ID: ${USER}"
-else
-    # The error message should now contain the Groovy script's output
-    echo "Error: Failed to create credential ${USER} via Jenkins CLI. Check logs."
-    exit 1
-fi
-
-    # Generate the XML structure for a Secret Text credential
-    # NOTE: The DESCRIPTION is stored in the <id>, <description>, AND <secret> fields.
     
-    # Send the XML to the Jenkins API to create/update the credential
-    # -s: Silent mode
-    # -u: User:Token authentication
-    # --data-binary @-: Pipe the standard input (the XML) as the body
-    
-    # We use a subshell and 'echo' the XML to ensure it's handled correctly by 'curl'
-    RESPONSE=$(echo "${CREDENTIAL_XML}" | curl -X POST -s -w "%{http_code}" -o /dev/null -u "${JENKINS_USER}:${JENKINS_TOKEN}" "${JENKINS_URL}/credentials/store/system/domain/_/createCredentialsByXml" --data-binary @-)
+    # 4. Execute the Jenkins CLI command
+    java -jar jenkins-cli.jar -s "${JENKINS_URL}" \
+         -auth "${JENKINS_USER}:${JENKINS_TOKEN}" \
+         create-credential system::system::${USER} < "$TEMP_XML_FILE"
 
-    echo "DEBUG: Attempting API call to: ${JENKINS_URL}/credentials/store/system/domain/_/createCredentialsByXml"
-
-    if [ "$RESPONSE" -eq 200 ] || [ "$RESPONSE" -eq 204 ]; then
-        echo "Successfully created/updated credential ID: ${USER}"
+    # Check the exit code of the Java command
+    if [ $? -eq 0 ]; then
+        echo "SUCCESS: Credential ID ${USER} created."
     else
-        echo "Error creating credential ${USER}. HTTP Code: ${RESPONSE}"
-        # Exit with error if any credential fails to be created
+        echo "ERROR: Failed to create credential ${USER} via Jenkins CLI. Check User permissions."
+        # If failure occurs, remove the temporary file and exit the script
+        rm -f "$TEMP_XML_FILE"
         exit 1
     fi
+
+    # 5. Clean up the temporary XML file (critical for security)
+    rm -f "$TEMP_XML_FILE"
 
 done < "$USER_FILE"
 
