@@ -23,7 +23,7 @@ pipeline {
                     
                     // 2. Use withCredentials to safely retrieve the Admin Token
                     withCredentials([usernamePassword(
-                        credentialsId: '${JENKINS_USER_ID}', // ID of the Admin User/Token
+                        credentialsId: 'jayshukla29_13', // ID of the Admin User/Token
                         usernameVariable: 'JENKINS_USER',
                         passwordVariable: 'JENKINS_TOKEN'
                     )]) {
