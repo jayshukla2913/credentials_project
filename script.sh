@@ -3,8 +3,8 @@
 
 # --- Configuration ---
 USER_FILE="credentials.txt"
-JENKINS_URL="${http://107.23.4.27:8080}"
-JENKINS_USER="${jayshukla29_13}"
+JENKINS_URL="${JENKINS_URL}"
+JENKINS_USER="${JENKINS_USER}"
 JENKINS_TOKEN="${JENKINS_TOKEN}"
 # ---------------------
 
