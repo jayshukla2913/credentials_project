@@ -41,30 +41,44 @@ while IFS=, read -r USER PASSWORD; do
 
     echo "Processing user: ${USER} using Jenkins CLI"
 
-    # 2. Construct the Groovy Script for 'Secret Text' (The CLI takes a Groovy script)
+# 2. Construct the Groovy Script for 'Secret Text' using the Credentials API
+
     GROOVY_SCRIPT=$(cat <<EOF
-new com.cloudbees.plugins.credentials.impl.SecretStringCredentialsImpl(
-    com.cloudbees.plugins.credentials.CredentialsScope.GLOBAL,
-    "${USER}",
-    "${USER}",
-    "${PASSWORD}"
-).store()
+import com.cloudbees.plugins.credentials.domains.Domain;
+import com.cloudbees.plugins.credentials.impl.SecretStringCredentialsImpl;
+import com.cloudbees.plugins.credentials.CredentialsScope;
+
+// Get the Credentials Provider (the management service)
+def store = jenkins.model.Jenkins.instance.getExtensionList('com.cloudbees.plugins.credentials.CredentialsProvider').get(0).getStore(jenkins.model.Jenkins.instance);
+
+// Create the new SecretStringCredentialsImpl instance
+def credential = new SecretStringCredentialsImpl(
+    CredentialsScope.GLOBAL,
+    "${USER}", // ID
+    "${USER}", // Description (Using User as description)
+    "${PASSWORD}" // Secret
+);
+
+// Add the credential to the global store
+store.addCredentials(Domain.global(), credential);
+println "SUCCESS: Credential ${USER} added."
 EOF
 )
-
-
+    
 # 3. Execute the CLI command with the Groovy script
-    java -jar jenkins-cli.jar -s "${JENKINS_URL}" \
-         -auth "${JENKINS_USER}:${JENKINS_TOKEN}" \
-         groovy = <<< "$GROOVY_SCRIPT"
+# The CLI will execute this script against the Jenkins master
+java -jar jenkins-cli.jar -s "${JENKINS_URL}" \
+     -auth "${JENKINS_USER}:${JENKINS_TOKEN}" \
+     groovy = <<< "$GROOVY_SCRIPT"
 
-    # Check the exit code of the Java command
-    if [ $? -eq 0 ]; then
-        echo "Successfully created/updated credential ID: ${USER}"
-    else
-        echo "Error: Failed to create credential ${USER} via Jenkins CLI. Check logs."
-        exit 1
-    fi
+# Check the exit code of the Java command
+if [ $? -eq 0 ]; then
+    echo "Successfully created/updated credential ID: ${USER}"
+else
+    # The error message should now contain the Groovy script's output
+    echo "Error: Failed to create credential ${USER} via Jenkins CLI. Check logs."
+    exit 1
+fi
 
     # Generate the XML structure for a Secret Text credential
     # NOTE: The DESCRIPTION is stored in the <id>, <description>, AND <secret> fields.
